@@ -3,9 +3,31 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Upload } from 'lucide-react'
+
+//import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LayoutDashboard, LogOut, User } from 'lucide-react';
+
+// Define the interface for user case
+interface UserCase {
+  case_code: string;
+  cases: { description: string }[];
+  process_schedules: { id: string; process_name: string; actions: { name: string }[] }[];
+}
+
+// Define the type for selectedAction
+interface Action {
+  name: string;
+  case_code: string; // Add other properties as needed
+  process_id: string; // Ensure this matches your actual structure
+}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -28,6 +50,61 @@ export default function Dashboard() {
     await supabase.auth.signOut();
     router.push('/auth/login');
   };
+
+  const [userCases, setUserCases] = useState<UserCase[]>([]);
+  const [selectedAction, setSelectedAction] = useState<Action | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserCases();
+    }
+  }, [user]);
+
+  const fetchUserCases = async () => {
+    if (!user) return; // Guard clause to ensure user is defined
+    const { data, error } = await supabase
+      .from('user_cases')
+      .select(`
+        case_code,
+        cases (description),
+        process_schedules (
+          id,
+          process_name,
+          actions
+        )
+      `)
+     // .eq('user_id', user.id) // Use the user's ID from the state
+
+    if (error) {
+      console.error('Error fetching user cases:', error)
+    } else {
+      setUserCases(data as UserCase[]) // Cast data to UserCase[]
+    }
+  }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      setFile(event.target.files[0]);
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!file || !selectedAction) return
+
+    const filePath = `${selectedAction?.case_code}/${selectedAction?.process_id}/${selectedAction?.name}/${file.name}`
+    const { error } = await supabase.storage
+      .from('user-uploads')
+      .upload(filePath, file)
+
+    if (error) {
+      console.error('Error uploading file:', error)
+    } else {
+      alert('File uploaded successfully!')
+      setSelectedAction(null)
+      setFile(null)
+    }
+  }
 
   if (!user) return null;
 
@@ -67,6 +144,71 @@ export default function Dashboard() {
                 </p>
               </CardContent>
             </Card>
+            <Card className="w-full max-w-6xl mx-auto">
+      <CardHeader>
+        <CardTitle>Your Cases and Upload Actions</CardTitle>
+        <CardDescription>View your assigned cases and required upload actions</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Case Code</TableHead>
+              <TableHead>Case Description</TableHead>
+              <TableHead>Process Name</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {userCases.map((userCase) => (
+              userCase.process_schedules.map((schedule) => (
+//                <TableRow key={`${userCase.case_code}-${schedule.id}`}>
+                <TableRow key={`${userCase.case_code}`}>
+                  <TableCell>{userCase.case_code}</TableCell>
+                  <TableCell>{userCase.cases[0]?.description}</TableCell>
+                  <TableCell>{userCase.process_schedules[0]?.process_name}</TableCell>
+                  <TableCell>
+                    {schedule.actions.map((action) => (
+                      <Dialog key={schedule.id}>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mr-2 mb-2"
+                            onClick={() => setSelectedAction({
+                              name: action.name,
+                              case_code: userCase.case_code,
+                              process_id: schedule.id
+                            })}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {action.name}
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Upload File for {action.name}</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="file">Select File</Label>
+                              <Input id="file" type="file" onChange={handleFileChange} />
+                            </div>
+                            <Button onClick={handleUpload} disabled={!file}>
+                              Upload
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    ))}
+                  </TableCell>
+                </TableRow>
+              ))
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
             {/* Add more dashboard cards and content here */}
           </div>
         </div>

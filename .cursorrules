@@ -1,0 +1,12 @@
+Languages & Libraries: TypeScript, Next.js (App Router), React, Supabase, Tailwind CSS, Radix UI, Shadcn UI.
+
+Principles:
+
+Modularity & Reusability: Use functional, declarative programming. Avoid duplication and classes.
+Code Readability: Descriptive variable names, early returns, guard clauses for error handling, concise TypeScript examples.
+Architecture:
+
+React: Functional components only, avoid extensive use client.
+Styling: Tailwind CSS, Shadcn,CVA for variants.
+Data: Server components for fetching, Supabase RLS for security, API for data queries.
+Testing & Documentation: Unit, integration, and end-to-end tests for functions and components. Keep README and schema documentation up-to-date.
